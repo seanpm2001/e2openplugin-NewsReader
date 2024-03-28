@@ -10,23 +10,26 @@ from __future__ import print_function
 
 # PYTHON IMPORTS
 from html import unescape
+from re import search
 from urllib.request import Request, urlopen
 from xml.dom.minidom import parse, getDOMImplementation
 
 # ENIGMA IMPORTS
-from Screens.Screen import Screen
-from Screens.MessageBox import MessageBox
 from Components.ActionMap import ActionMap
-from Components.ScrollLabel import ScrollLabel
-from Components.MenuList import MenuList
 from Components.Input import Input
+from Components.MenuList import MenuList
+from Components.ScrollLabel import ScrollLabel
+from Components.Sources.StaticText import StaticText
 from Plugins.Plugin import PluginDescriptor
+from Screens.MessageBox import MessageBox
+from Screens.Screen import Screen
 from Screens.VirtualKeyBoard import VirtualKeyBoard
 
-# for localized messages
-from . import _
+# PLUGIN IMPORTS
+from . import _  # for localized messages
 
 myname = "NewsReader"
+version = "v1.1"
 
 
 def main(session, **kwargs):
@@ -43,9 +46,10 @@ def Plugins(**kwargs):
 
 class FeedScreenList(Screen):
 	skin = """
-		<screen position="120,120" size="e-240,e-240" title="%s" >
-			<widget name="menu" position="15,15" size="e-30,e-30" font="Regular;33" itemHeight="45" scrollbarMode="showOnDemand" />
-		</screen>""" % myname
+		<screen position="120,120" size="e-240,e-240" flags="wfNoBorder" title="%s %s" >
+			<widget source="title" render="Label" position="15,0" size="600,75" font="Regular;54" halign="left" valign="center" />
+			<widget name="menu" position="15,75" size="e-30,e-30" font="Regular;33" itemHeight="45" scrollbarMode="showOnDemand" />
+		</screen>""" % (myname, version)
 
 	def __init__(self, session, args=0):
 		self.skin = FeedScreenList.skin
@@ -53,6 +57,7 @@ class FeedScreenList(Screen):
 		Screen.__init__(self, session)
 		self.menu = args
 		self.config = FeedreaderConfig()
+		self["title"] = StaticText(f"{myname} {version}")
 		self["menu"] = MenuList([])
 		self["actions"] = ActionMap(["WizardActions", "DirectionActions", "MenuActions"],
 			{
@@ -72,7 +77,7 @@ class FeedScreenList(Screen):
 		if feed:
 			self.showFeed(feed)
 		else:
-			print("[" + myname + "] section in config not found")
+			print(f"[{myname}] section in config not found")
 
 	def showFeed(self, feed):
 		try:
@@ -80,7 +85,7 @@ class FeedScreenList(Screen):
 		except IOError as error:  # no messagebox allowed till we've opened our screen
 			self.session.open(MessageBox, _("loading feeddata failed!\n\n%s" % error), MessageBox.TYPE_WARNING)
 		except Exception:  # no messagebox allowed till we've opened our screen
-			print("no feed data")
+			print(f"[{myname}] no feed data")
 			self.session.open(MessageBox, _("Beim Anzeigen des Feeds %s ist ein Fehler aufgetreten" % feed.getName()), MessageBox.TYPE_INFO)
 
 	def openMainMenu(self):
@@ -94,7 +99,6 @@ class FeedScreenList(Screen):
 
 
 class FeedreaderConfig:
-
 	def __init__(self):
 		self.configfile = "/etc/feeds.xml"
 		self.node = None
@@ -112,7 +116,7 @@ class FeedreaderConfig:
 		try:
 			self.node = parse(self.configfile)
 		except Exception:
-			print("Illegal xml file")
+			print(f"[{myname}] Illegal xml file")
 			print(self.configfile)
 			return
 		if self.node is not None:
@@ -248,8 +252,9 @@ class FeedreaderMenuMain(Screen):
 		self.config = config
 		self.selectedfeed = selectedfeed
 		self.skin = """
-				<screen position="120,120" size="e-240,e-240" title="Main Menu" >
-					<widget name="menu" position="15,15" size="e-30,e-30" font="Regular;33" itemHeight="45" scrollbarMode="showOnDemand" />
+				<screen position="120,120" size="e-240,e-240" title="Main Menu" flags="wfNoBorder" >
+					<widget source="title" render="Label" position="15,0" size="600,75" font="Regular;54" halign="left" valign="center" />
+					<widget name="menu" position="15,75" size="e-30,e-30" font="Regular;33" itemHeight="45" scrollbarMode="showOnDemand" />
 				</screen>"""
 		self.session = session
 		Screen.__init__(self, session)
@@ -257,6 +262,7 @@ class FeedreaderMenuMain(Screen):
 		feedlist.append((_("change feed"), "feed_change"))
 		feedlist.append((_("add new feed"), "feed_add"))
 		feedlist.append((_("delete feed"), "feed_delete"))
+		self["title"] = StaticText("Main Menu")
 		self["menu"] = MenuList(feedlist)
 		self["actions"] = ActionMap(["WizardActions", "DirectionActions"],
 										{
@@ -347,9 +353,10 @@ class FeedScreenContent(Screen):
 		if self.feed is None:
 			return
 		self.skin = """
-				<screen position="120,120" size="e-240,e-240" title="%s" >
-					<widget name="menu" position="15,15" size="e-30,e-30" font="Regular;33" itemHeight="45" scrollbarMode="showOnDemand" />
-				</screen>""" % (self.feed.getName())
+				<screen position="120,120" size="e-240,e-240" title="%s" flags="wfNoBorder" >
+					<widget source="title" render="Label" position="15,0" size="600,75" font="Regular;54" halign="left" valign="center" />
+					<widget name="menu" position="15,75" size="e-30,e-30" font="Regular;33" itemHeight="45" scrollbarMode="showOnDemand" />
+				</screen>""" % self.feed.getName()
 		self.session = session
 		Screen.__init__(self, session)
 		feedlist = []
@@ -360,6 +367,7 @@ class FeedScreenContent(Screen):
 			self.itemfeedlist.append(item)
 			itemnr = itemnr + 1
 		self.menu = args
+		self["title"] = StaticText(self.feed.getName())
 		self["menu"] = MenuList(feedlist)
 		self["actions"] = ActionMap(["WizardActions", "DirectionActions"],
 										{
@@ -368,14 +376,14 @@ class FeedScreenContent(Screen):
 										}, -1)
 
 	def getFeedContent(self, feed):
-		print("[" + myname + "] reading feedurl '%s' ..." % (feed.getURL()))
+		print(f"[{myname}] reading feedurl '{feed.getURL()}'...")
 		try:
 			self.rss = RSS()
 			self.feedc = self.rss.getfeedlist(feed.getURL())
-			print("[" + myname + "] have got %i items in newsfeed " % len(self.feedc))
+			print(f"[{myname}] have got {len(self.feedc)} items in newsfeed ")
 			return self.feedc
 		except IOError:
-			print("[" + myname + "] IOError by loading the feed! feed adress correct?")
+			print(f"[{myname}] IOError by loading the feed! feed adress correct?")
 			return []
 		except Exception:  # no messagebox allowed till we've opened our screen
 			self.session.open(MessageBox, _("loading feeddata failed!"), MessageBox.TYPE_WARNING)
@@ -403,12 +411,13 @@ class FeedScreenItemviewer(Screen):
 		self.feed = args[0]
 		self.item = args[1]
 		self.skin = """
-				<screen position="120,120" size="e-240,e-240" title="%s" >
-					<widget name="text" position="15,15" size="e-30,e-30" font="Regular;33" />
+				<screen position="120,120" size="e-240,e-240" title="%s" flags="wfNoBorder" >
+					<widget source="title" render="Label" position="15,0" size="600,75" font="Regular;54" halign="left" valign="center" />
+					<widget name="text" position="15,75" size="e-30,e-30" font="Regular;33" />
 				</screen>""" % self.feed.getName()
 		Screen.__init__(self, session)
-
-		self["text"] = ScrollLabel(self.item['title'] + "\n\n" + self.item['desc'] + "\n\n" + self.item['date'] + "\n" + self.item['link'])
+		self["title"] = StaticText(self.feed.getName())
+		self["text"] = ScrollLabel(f"{self.item['title']}\n\n{self.item['desc']}\n\n{self.item['date']}\n{self.item['link']}")
 		self["actions"] = ActionMap(["WizardActions"],
 									{
 									"ok": self.close,
@@ -476,12 +485,21 @@ class RSS:
 		channelname = self.get_txt(rssDocument, "title", "no channelname")
 		data = []
 		for node in self.getElementsByTagName(rssDocument, 'item'):
-			nodex = {}
+			nodex = {}  # dict of all titles of a feed
 			nodex['channel'] = channelname
 			nodex['type'] = self.get_txt(node, "type", "feed")
 			nodex['link'] = self.get_txt(node, "link", "")
 			nodex['title'] = unescape(self.get_txt(node, "title", "<no title>"))
 			nodex['date'] = self.get_txt(node, "pubDate", self.get_txt(node, "date", ""))
-			nodex['desc'] = unescape(self.get_txt(node, "description", ""))
+			nodex['desc'] = self.clearTags(unescape(self.get_txt(node, "description", "")))
 			data.append(nodex)
 		return data
+
+	def clearTags(self, text):
+		clean = []
+		for line in text.split("\n"):
+			found = search(r'<img src=".*?alt="(.*?)"', line)
+			newline = found.group(1) if found else line
+			newline = newline.replace("<br />", " ").strip()
+			clean.append(newline)
+		return "\n".join(clean).replace("\n\n", "\n")
