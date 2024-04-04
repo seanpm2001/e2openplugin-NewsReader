@@ -46,9 +46,8 @@ def Plugins(**kwargs):
 
 class FeedScreenList(Screen):
 	skin = """
-		<screen position="120,120" size="e-240,e-240" flags="wfNoBorder" title="%s %s" >
-			<widget source="title" render="Label" position="15,0" size="600,75" font="Regular;54" halign="left" valign="center" />
-			<widget name="menu" position="15,75" size="e-30,e-30" font="Regular;33" itemHeight="45" scrollbarMode="showOnDemand" />
+		<screen position="120,120" size="e-240,e-240" title="%s %s" >
+			<widget name="menu" position="15,15" size="e-30,e-30" font="Regular;33" itemHeight="45" scrollbarMode="showOnDemand" />
 		</screen>""" % (myname, version)
 
 	def __init__(self, session, args=0):
@@ -57,7 +56,6 @@ class FeedScreenList(Screen):
 		Screen.__init__(self, session)
 		self.menu = args
 		self.config = FeedreaderConfig()
-		self["title"] = StaticText(f"{myname} {version}")
 		self["menu"] = MenuList([])
 		self["actions"] = ActionMap(["WizardActions", "DirectionActions", "MenuActions"],
 			{
@@ -252,9 +250,8 @@ class FeedreaderMenuMain(Screen):
 		self.config = config
 		self.selectedfeed = selectedfeed
 		self.skin = """
-				<screen position="120,120" size="e-240,e-240" title="Main Menu" flags="wfNoBorder" >
-					<widget source="title" render="Label" position="15,0" size="600,75" font="Regular;54" halign="left" valign="center" />
-					<widget name="menu" position="15,75" size="e-30,e-30" font="Regular;33" itemHeight="45" scrollbarMode="showOnDemand" />
+				<screen position="120,120" size="e-240,e-240" title="Main Menu" >
+					<widget name="menu" position="15,15" size="e-30,e-30" font="Regular;33" itemHeight="45" scrollbarMode="showOnDemand" />
 				</screen>"""
 		self.session = session
 		Screen.__init__(self, session)
@@ -262,7 +259,6 @@ class FeedreaderMenuMain(Screen):
 		feedlist.append((_("change feed"), "feed_change"))
 		feedlist.append((_("add new feed"), "feed_add"))
 		feedlist.append((_("delete feed"), "feed_delete"))
-		self["title"] = StaticText("Main Menu")
 		self["menu"] = MenuList(feedlist)
 		self["actions"] = ActionMap(["WizardActions", "DirectionActions"],
 										{
@@ -350,26 +346,24 @@ class WizzardDeleteFeed(Screen):
 class FeedScreenContent(Screen):
 	def __init__(self, session, args=None):
 		self.feed = args
-		if self.feed is None:
-			return
-		self.skin = """
-				<screen position="120,120" size="e-240,e-240" title="%s" flags="wfNoBorder" >
-					<widget source="title" render="Label" position="15,0" size="600,75" font="Regular;54" halign="left" valign="center" />
-					<widget name="menu" position="15,75" size="e-30,e-30" font="Regular;33" itemHeight="45" scrollbarMode="showOnDemand" />
-				</screen>""" % self.feed.getName()
-		self.session = session
-		Screen.__init__(self, session)
-		feedlist = []
-		self.itemfeedlist = []
-		itemnr = 0
-		for item in self.getFeedContent(self.feed):
-			feedlist.append((item["title"], itemnr))
-			self.itemfeedlist.append(item)
-			itemnr = itemnr + 1
-		self.menu = args
-		self["title"] = StaticText(self.feed.getName())
-		self["menu"] = MenuList(feedlist)
-		self["actions"] = ActionMap(["WizardActions", "DirectionActions"],
+		if self.feed:
+			self.skin = """
+					<screen position="120,120" size="e-240,e-240" title="%s" >
+						<widget name="menu" position="15,15" size="e-30,e-30" font="Regular;33" itemHeight="45" scrollbarMode="showOnDemand" />
+					</screen>""" % self.feed.getName()
+			self.session = session
+			Screen.__init__(self, session)
+			feedlist = []
+			self.itemfeedlist = []
+			itemnr = 0
+			for item in self.getFeedContent(self.feed):
+				feedlist.append((item["title"], itemnr))
+				self.itemfeedlist.append(item)
+				itemnr = itemnr + 1
+			self.menu = args
+			self["title"] = StaticText(self.feed.getName())
+			self["menu"] = MenuList(feedlist)
+			self["actions"] = ActionMap(["WizardActions", "DirectionActions"],
 										{
 										"ok": self.go,
 										"back": self.close,
@@ -405,26 +399,39 @@ class FeedScreenContent(Screen):
 
 
 class FeedScreenItemviewer(Screen):
-	skin = ""
-
 	def __init__(self, session, args=[0, 0]):
 		self.feed = args[0]
 		self.item = args[1]
 		self.skin = """
-				<screen position="120,120" size="e-240,e-240" title="%s" flags="wfNoBorder" >
-					<widget source="title" render="Label" position="15,0" size="600,75" font="Regular;54" halign="left" valign="center" />
-					<widget name="text" position="15,75" size="e-30,e-30" font="Regular;33" />
+				<screen position="120,120" size="e-240,e-240" title="%s" >
+					<widget name="text" position="15,15" size="e-30,e-30" font="Regular;33" />
 				</screen>""" % self.feed.getName()
 		Screen.__init__(self, session)
 		self["title"] = StaticText(self.feed.getName())
-		self["text"] = ScrollLabel(f"{self.item['title']}\n\n{self.item['desc']}\n\n{self.item['date']}\n{self.item['link']}")
+		self["text"] = ScrollLabel(f"{self.item['title']}\n\n{self.clearTags(self.item['desc'])}\n\n{self.item['date']}\n{self.item['link']}")
 		self["actions"] = ActionMap(["WizardActions"],
 									{
 									"ok": self.close,
 									"back": self.close,
+									"left": self["text"].pageUp,
+									"right": self["text"].pageDown,
 									"up": self["text"].pageUp,
 									"down": self["text"].pageDown
 									}, -1)
+
+	def clearTags(self, text):
+		text = text.replace("\n\n", "\n").replace("<p>", "").replace("</p>", "").replace("<br />", "")
+		for separator in [("<a href=", r'".*?"\>(.*?)</a>'), ("<img src=", r'".*?"\>(.*?)</a>')]:
+			for hit in text.split(separator[0]):
+				found = search(separator[1], hit)
+				if found:  # rescue texts in tags
+					text = text.replace(f"{separator[0]}{found.group(0)}", f'"{found.group(1)}"')
+		for separator in [("<div><img src=", r'"(.*?)\</div\>')]:
+			for hit in text.split(separator[0]):
+				found = search(separator[1], hit)
+				if found:  # remove komplete tags
+					text = text.replace(f"{separator[0]}{found.group(0)}", "")
+		return text
 
 
 class RSS:
@@ -491,15 +498,6 @@ class RSS:
 			nodex['link'] = self.get_txt(node, "link", "")
 			nodex['title'] = unescape(self.get_txt(node, "title", "<no title>"))
 			nodex['date'] = self.get_txt(node, "pubDate", self.get_txt(node, "date", ""))
-			nodex['desc'] = self.clearTags(unescape(self.get_txt(node, "description", "")))
+			nodex['desc'] = unescape(self.get_txt(node, "description", ""))
 			data.append(nodex)
 		return data
-
-	def clearTags(self, text):
-		clean = []
-		for line in text.split("\n"):
-			found = search(r'<img src=".*?alt="(.*?)"', line)
-			newline = found.group(1) if found else line
-			newline = newline.replace("<br />", " ").strip()
-			clean.append(newline)
-		return "\n".join(clean).replace("\n\n", "\n")
